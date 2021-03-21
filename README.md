@@ -1,2 +1,4 @@
 # Music-Popularity-Predictor
 Analytical modeling on dataset of musical tracks to identify factors that determine impact and predict popularity of new tracks
+
+Project contains Data warehousing and processing technique to Extract, Transform and Load the data. First, For Data Ingestion- Loaded data in HTTP Client from GitHub repository and for destination gave HADOOP FS. Second, created schema for all the tables. After successfully extracting and loading data, various visualization techniques has been performed to get more insights from dataset. It has Connected HDFS with PowerBI to get the cleaned dataset from Cloudera. After that, Cleaned the data with the help of R programming, removing missing values, unwanted columns pulled out inconsistencies, removed erroneous data from the dataset, removed duplicate observations to avoid ambiguity. Visualization was performed on various music features.
