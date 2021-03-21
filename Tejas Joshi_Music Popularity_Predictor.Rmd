@@ -1,0 +1,348 @@
+---
+title: "Big Data Warehousing"
+Owner: "Tejas Joshi"
+
+output: html_document
+---
+
+
+$$
+Big~Data~Warehousing-Tejas~Joshi
+$$
+
+
+#Loading Libraries
+```{r}
+require(tidyverse)
+
+require(dlookr)
+
+require(inspectdf)
+
+require(plotly)
+```
+
+$$
+Data~Acquisition
+$$
+
+
+#Importing the dataset
+```{r}
+spotify_data <- read_csv("spotify_data.csv")
+
+spotify_data
+```
+
+$$
+Data~Cleaning
+$$
+
+#To display NA Values in the dataset
+```{r}
+spotify_data %>% inspect_na() %>% show_plot() 
+
+spotify_data %>% is.na() %>% colSums()
+```
+
+#Removing unwanted columns from the dataset
+
+```{r}
+spotify_data$track_id <- NULL
+
+spotify_data$track_album_id <- NULL
+
+spotify_data$playlist_id <- NULL
+
+spotify_data$instrumentalness <- NULL
+```
+
+#Removing NA Values from the dataset
+```{r}
+spotify_data<- na.omit(spotify_data)
+```
+
+#converting duration from milliseconds to seconds
+```{r}
+spotify_data <-spotify_data %>% rename(duration = duration_ms)
+
+spotify_data <- spotify_data %>% mutate(duration = duration/1000, duration = round(duration))
+```
+
+#To convert date format for the variable - track_album_release_date
+```{r}
+spotify_data <- separate(spotify_data, "track_album_release_date", c("playlist_album_release_year"))
+```
+
+
+#To rename columns
+```{r}
+spotify <-spotify %>% rename(release_year = playlist_album_release_year)
+```
+
+#To remove duplicate rows
+```{r}
+
+spotify <- distinct(spotify_data,track_name, .keep_all= TRUE)
+
+```
+
+
+#Extracting data for tracks released between year 2010 through 2019
+```{r}
+spotify <- spotify %>% filter(release_year >= 2010 & release_year <= 2019)
+```
+
+
+#Rounding decimal values
+```{r}
+spotify$danceability <- round(spotify$danceability, digits = 2)
+spotify$energy <- round(spotify$energy, digits = 2)
+spotify$loudness <- round(spotify$loudness, digits = 2)
+spotify$speechiness <- round(spotify$speechiness, digits = 2)
+spotify$acousticness <- round(spotify$acousticness, digits = 2)
+spotify$liveness <- round(spotify$liveness, digits = 2)
+spotify$valence <- round(spotify$valence, digits = 2)
+spotify$tempo <-round(spotify$tempo, digits = 2)
+```
+
+#Removing Outliers from Music feature variables
+```{r}
+#Outlier removal of duration
+boxplot(spotify$duration)$out
+outliers <- boxplot(spotify$duration, plot=FALSE)$out
+spotify[which(spotify$duration %in% outliers),]
+spotify <- spotify[-which(spotify$duration %in% outliers),]
+
+#Boxplot to show outlier removal
+boxplot(spotify$duration)
+#15171 rows
+
+
+#Outlier removal of Danceability 
+
+boxplot(spotify$danceability)$out
+outliers <- boxplot(spotify$danceability, plot=FALSE)$out
+spotify[which(spotify$danceability%in% outliers),]
+spotify <- spotify[-which(spotify$danceability%in% outliers),]
+
+#Boxplot to show outlier removal
+boxplot(spotify$danceability)
+#15017 rows
+
+
+#outlier removal for loudness
+boxplot(spotify$loudness)$out
+outliers <- boxplot(spotify$loudness, plot=FALSE)$out
+spotify[which(spotify$loudness%in% outliers),]
+spotify <- spotify[-which(spotify$loudness%in% outliers),]
+
+#Boxplot to show outlier removal
+boxplot(spotify$loudness)
+#14380 rows 
+
+
+#outlier removal for energy
+boxplot(spotify$energy)$out
+outliers <- boxplot(spotify$energy, plot=FALSE)$out
+spotify[which(spotify$energy%in% outliers),]
+spotify <- spotify[-which(spotify$energy%in% outliers),]
+
+#Boxplot to show outlier removal
+boxplot(spotify$energy)
+#14308 rows
+```
+
+
+
+#Cleaned dataset --> spotify_f
+```{r}
+spotify_f <- read_csv("spotify_final.csv")
+```
+
+
+
+
+$$
+Descriptive~Statistics
+$$
+
+
+#Summary of Variables
+```{r}
+summary(spotify_f)
+```
+
+#Distribution - Track popularity
+```{r}
+hist(spotify_f$track_popularity)
+```
+#Here track popularity can be observed as symmetric with the help of a histogram.So it is normally distributed.
+
+
+#Measure of Centrality for track popularity variable
+```{r}
+mean(spotify_f$track_popularity)
+
+median(spotify_f$track_popularity)
+```
+#The mean for track popularity is 41.78
+#The median for track popularity is 44
+
+
+#Spread measure for track popularity variable
+```{r}
+range(spotify_f$track_popularity)
+```
+#The maximum value for track popularity can be observed as 98 
+#The minimum value for track popularity can be observed as 0
+
+
+
+#Number of tracks released for the respective genre.
+```{r}
+spotify_f %>% group_by(song_genre) %>% summarise(Total_songs = n()) %>% arrange(desc(Total_songs))
+```
+
+
+$$
+Exploratory~Data~Analysis
+$$
+
+
+#Q-1 Which artist has most number of songs in top 100  popular tracks over the last decade?
+```{r}
+#Arranging songs with highest popularity in descending order
+top100songs <- spotify_f %>%arrange(desc(track_popularity)) %>% head(100)
+
+#Counting the total number of songs by grouping track artists
+top_artists <- top100songs %>% group_by(track_artist) %>% summarise(Total_Songs = n()) %>% arrange(desc(Total_Songs)) %>% head(10)
+  
+#Bar plot to visualize artists with most number of songs in top 100 over the last decade
+ggplot(top_artists, aes(x = reorder(track_artist, Total_Songs), y = Total_Songs, color = track_artist, fill = track_artist)) + geom_col(width = 0.6) + labs(title='Most Popular Artists', x = "Top Artists", y = "Total Songs") + theme_minimal() + theme(plot.title = element_text(hjust = 0.5)) + coord_flip() + geom_text(aes(label = Total_Songs), hjust = 2, size = 3, color = 'Black')
+```
+#Answer: Post Malone has the highest number of hits over last decade.
+
+
+
+#Q-2 Which music genre has become most popular and least popular over the last decade?
+```{r}
+#calculating average popularity for each year and song genre by Grouping data 
+s1 <- spotify_f %>% group_by(release_year, song_genre) %>% summarise(avg_popularity = mean(track_popularity)) 
+
+#Rounding off the average popularity
+s1$avg_popularity <- round(s1$avg_popularity, digits =2)
+
+#Scatterplot to show trend of music genres with respect to track popularity
+plot_ly(s1, x = ~release_year, y = ~avg_popularity, color = ~song_genre) %>% add_trace(type = "scatter", mode = "line") %>% layout(title = "Trend of music genres") 
+```
+#Answer: Rap Music has had the highest increase in average popularity over the years while pop music has had a substantial fall.
+
+
+
+#Q-3 For top popular songs in the last decade, does duration play a significant role?
+```{r}
+#Top ten songs for every year in the last decade from 2010 - 2019
+Top_Songs <- spotify_f %>% group_by(release_year) %>% top_n(n = 10,wt=track_popularity)
+
+#Animated Scatter plot to show correlation between duration and track popularity
+z <- plot_ly(Top_Songs, x = ~duration, y = ~track_popularity, size =0.3, colors = pal) %>% add_trace(type = "scatter", mode = "markers", frame = ~release_year) %>% animation_opts(2000, easing = "elastic", redraw = FALSE)
+
+#Displaying output in a html file
+htmlwidgets::saveWidget(z, "index.html")
+```
+#Answer: Yes, the duration of the song impacts its track popularity. As the duration of a track decreases, its popularity has increased over the years. So it shows that users prefer listening to tracks with less run-time in seconds.
+
+
+
+
+#Q-4 For the top 50 popular artist in the previous decade, is there a preference for the keys used for composition? And is there a relationship between these preferred keys and valence (positivity) for popular tracks?
+
+#Assigning chractersitics of mood according to the key and mode
+```{r}
+#Assigning major and minor scale to mode
+spotify_f$mode_type[spotify_f$mode == "1"] <- "Major" 
+spotify_f$mode_type[spotify_f$mode == "0"] <- "Minor"
+
+spotify_f$keys <- paste(spotify_f$key_values,spotify_f$mode_type, sep= " ")
+
+#Assigning emotions to keys and mode
+spotify_f$key_mood[spotify_f$keys == "F♯,G♭ Major"]<- " Conquering Difficulties, Sighs of Relief"
+
+spotify_f$key_mood[spotify_f$keys == "B Major"]<- " Harsh, Strong, Wild, Rage"
+spotify_f$key_mood[spotify_f$keys == "C♯,D♭ Minor"]<- "Despair, Wailing, Weping"
+spotify_f$key_mood[spotify_f$keys == "G Major"]<- " Serious, Magnificent, Fantasy, Gratitute, Peace "
+spotify_f$key_mood[spotify_f$keys == "C♯,D♭ Major"]<- " Fullness, Sonorousness, Euphony"
+
+spotify_f$key_mood[spotify_f$keys == "G♯,A♭ Major"]<- " Death, Eternity, Judgement"
+
+spotify_f$key_mood[spotify_f$keys == "F Minor"]<- "Obscure, Plaintive, Funereal, Melancholic"
+
+spotify_f$key_mood[spotify_f$keys == "E Minor"]<- "Effeminate, Amorous, Restless, Grief, Mournfulness"
+spotify_f$key_mood[spotify_f$keys == "D Major"]<- "Triumphant, Victorious War-Cries, Holiday songs"
+spotify_f$key_mood[spotify_f$keys == "C Major"]<- "Innocently Happy, Free of burden, Full of imagination"
+spotify_f$key_mood[spotify_f$keys == "A♯,B♭ Minor"]<- " Terrible, the Night, Mocking"
+spotify_f$key_mood[spotify_f$keys == "F♯,G♭ Minor"]<- "Gloomy, Passionate Resentment, Discontentment"
+spotify_f$key_mood[spotify_f$keys == "A Minor"]<- "Tender, Plaintive, Pious"
+spotify_f$key_mood[spotify_f$keys == "C Minor"]<- "Innocently Sad, Love-Sick, Unhappy relationships"
+spotify_f$key_mood[spotify_f$keys == "A♯,B♭ Major"]<- " Joyful, Quaint, Cheerful"
+
+spotify_f$key_mood[spotify_f$keys == "F Major"]<- "Furious, Quick-Tempered, Passing Regret"
+spotify_f$key_mood[spotify_f$keys == "B Minor"]<- "Solitary, Melancholic, Patience"
+spotify_f$key_mood[spotify_f$keys == "D♯,E♭ Minor"]<- " Deep Distress, Existential Angst, Existential Terror"
+spotify_f$key_mood[spotify_f$keys == "G Minor"]<- "Discontent, UneasinessTender"
+spotify_f$key_mood[spotify_f$keys == "D♯,E♭ Major"]<- " Cruel, Hard, Yet Full of Devotion"
+spotify_f$key_mood[spotify_f$keys == "E Major"]<- "Quarrelsome, Boisterous, Incomplete Pleasure"
+spotify_f$key_mood[spotify_f$keys == "A Major"]<- "Joyful, Pastoral, Declaration of Love"
+
+spotify_f$key_mood[spotify_f$keys == "D Minor"]<- "Serious, Pious, Ruminating, Contemplation negativity"
+
+spotify_f$key_mood[spotify_f$keys == "G♯,A♭ Minor"]<- " Discontent, Uneasiness"
+```
+
+#Visual Representation for Question 4
+```{r}
+
+#Arranging keys with respect to track popularity in descending order
+s5<-spotify_f %>% select(track_artist,valence,keys, track_popularity, release_year,key_mood)  %>% arrange(desc(track_popularity)) %>% head(50)
+
+#Scatter plot to show relationship between keys and valence levels
+p<-ggplot(s5, aes(valence, track_artist, color = keys,size=valence, text = paste("Mood:", key_mood))) +geom_point() + theme_minimal()
+
+fig <- ggplotly(p)
+
+fig
+```
+#Answer: It's evident that most of the popular tracks are based in the scale of G. And yes, there is a relationship between keys and valence levels for popular songs. So higher valence keys resemble positive Emotion or mood.
+
+
+
+#Q-5 Analyzing songs by top six popular artists(based on average popularity and a minimum of 20 tracks) for the last three years.
+```{r}
+#Creating a dummy column to count the total number of songs released by an artist
+
+spotify_f <- spotify_f %>% mutate(number=1)
+
+top_artist_pop <- spotify_f %>% group_by(track_artist) %>% mutate(avg_pop=mean(track_popularity),no_of_songs=sum(number))
+
+top_artist_pop %>% filter(release_year > 2016,no_of_songs > 20) %>% select(track_artist,avg_pop,no_of_songs) %>% arrange(desc(avg_pop))
+
+#So, the top six artists are Khalid,Ozuna,Katy Perry,Ed Sheeran,Marshmello,David Guetta
+
+top_6_artist <- spotify1 %>% filter(track_artist%in%c("Khalid","Ozuna","Katy Perry","Ed Sheeran","Marshmello","David Guetta"))
+
+#Scatterplot to show relationship between energy and valence levels and also categorize emotions
+ggplot(top_6_artist,aes(y=energy,x=valence,color=song_genre,size=song_genre)) + geom_point() + facet_wrap(~track_artist) + geom_hline(yintercept = 0.5,size=1) + geom_vline(xintercept = 0.5,size=1) + annotate(geom="text", x=0.2, y=0.9, label="(Agitated,Pumped)") + annotate(geom="text", x=0.8, y=0.9, label="(Happy,Excited)")   + annotate(geom="text", x=0.8, y=0.1, label="(Calm/Relaxed)")   + annotate(geom="text", x=0.2, y=0.1, label="(Sad,Tired)") + labs(x="Valence Levels(Positivity)", y="Energy Levels") + theme_grey() 
+```
+
+# Answer: For the top six artists we have faceted the plot which shows the type of songs composed by them. I have made a simple classification to represent the emotions as happy (when both valence and energy levels are high), sad (both valence and energy levels are low), agitated (low valence levels and high energy levels) and for calm(high valence levels and low energy levels) 
+
+#Example:  Among top six Artists we can see tracks composed by ed Sheeran fall into happy songs category with high energy and valence levels.
+
+
+$$
+Thank~You
+$$
+
+
+
